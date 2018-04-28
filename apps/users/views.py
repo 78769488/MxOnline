@@ -1,11 +1,12 @@
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
 from django.shortcuts import render
 from django.views.generic.base import View
 
-from users.models import UserProfile
-from users.forms import LoginForm
+from users.models import UserProfile, EmailVerifyRecord
+from users.forms import LoginForm, RegisterForm
 
 
 # 邮箱和用户名都可以登录
@@ -52,4 +53,24 @@ class LoginView(View):
 class RegisterView(View):
     """用户注册"""
     def get(self, request):
-        return render(request, 'register.html')
+        register_form = RegisterForm()
+        return render(request, 'register.html', {'register_form': register_form})
+
+    def post(self, request):
+        register_form = RegisterForm(request.POST)
+        if register_form.is_valid():
+            username = request.POST.get('email', None)
+            # 如果用户已存在， 则提示错误信息
+            if UserProfile.objects.filter(email=username):
+                return render(request, 'register.html',
+                              {'register_form': register_form,
+                               'msg': '用户已存在'}
+                              )
+            password = request.POST.get('password', None)
+            # 实例化一个user_profile对象
+            user_profile = UserProfile()
+            user_profile.username = username
+            user_profile.email = username
+            user_profile.active =False
+            # 对保存到数据库的数据加密
+            user_profile.password = make_password(password)
